@@ -42,10 +42,23 @@ export const signOut = () =>
     headers
   }).then(handleErrors);
 
-export const isSignedIn = () =>
+export const getMyData = () =>
   fetch("/api/auth/me", {
     method: "GET",
     headers
+  }).then(handleErrors);
+
+export const deleteSecurityKeys = () =>
+  fetch("/api/auth/keys", {
+    method: "DELETE",
+    headers
+  }).then(handleErrors);
+
+export const postAssertionResponse = res =>
+  fetch("/api/auth/assertion", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(res)
   }).then(handleErrors);
 
 export const getRegistrationOptions = () =>

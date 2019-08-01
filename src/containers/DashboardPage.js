@@ -10,10 +10,11 @@ import {
   encodeAttestationResponse
 } from "webauthnjs-helper";
 import {
-  isSignedIn,
+  getMyData,
   signOut,
   getRegistrationOptions,
-  postRegistrationResponse
+  postRegistrationResponse,
+  deleteSecurityKeys
 } from "../api";
 
 const styles = () => ({
@@ -22,23 +23,36 @@ const styles = () => ({
     margin: "0px auto",
     paddingTop: 150
   },
-  logoutWrapper: {
+  topSection: {
     height: 200,
     top: 150,
     display: "flex",
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "space-around"
+  },
+  securityKeysWrapper: {
+    textAlign: "center",
+    padding: 50,
+    fontSize: 20
   }
 });
 
 class DashboardPage extends Component {
+  state = {};
   componentDidMount() {
-    isSignedIn().catch(e => {
-      console.log("Unable to login");
-      console.log(e.message);
-      this.props.history.push("/login");
-    });
+    this.reloadData();
   }
+
+  reloadData = () =>
+    getMyData()
+      .then(res => {
+        this.setState({ ...res });
+      })
+      .catch(e => {
+        console.log("Invalid User");
+        console.log(e.message);
+        this.props.history.push("/login");
+      });
 
   handleLogout = () => {
     signOut().then(this.props.history.push("/login"));
@@ -58,18 +72,41 @@ class DashboardPage extends Component {
       const encodedRegistrationResponse = encodeAttestationResponse(
         registrationResponse
       );
-      postRegistrationResponse({ ...encodedRegistrationResponse });
+      postRegistrationResponse({ ...encodedRegistrationResponse }).then(
+        this.reloadData
+      );
     } catch (e) {
       console.log(e);
     }
   };
 
+  handleDeleteKeys = async () => deleteSecurityKeys().then(this.reloadData);
+
   render() {
     const { classes } = this.props;
+    const { user } = this.state;
     return (
       <div className={classes.root}>
         <Paper className={classes.paper}>
-          <div className={classes.logoutWrapper}>
+          <div className={classes.topSection}>
+            <Button
+              variant="contained"
+              color="primary"
+              className={classes.button}
+              onClick={this.handleAddSecurityKey}
+            >
+              Add Security Key
+            </Button>
+
+            <Button
+              variant="contained"
+              color="primary"
+              className={classes.button}
+              onClick={this.handleDeleteKeys}
+            >
+              Delete All Security Keys
+            </Button>
+
             <Button
               variant="contained"
               color="primary"
@@ -81,14 +118,7 @@ class DashboardPage extends Component {
           </div>
           <Divider />
           <div className={classes.securityKeysWrapper}>
-            <Button
-              variant="contained"
-              color="primary"
-              className={classes.button}
-              onClick={this.handleAddSecurityKey}
-            >
-              Add Security Key
-            </Button>
+            {user && `Number of keys:  ${user.securitykeys.length}`}
           </div>
         </Paper>
       </div>

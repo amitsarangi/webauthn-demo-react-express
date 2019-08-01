@@ -1,6 +1,11 @@
 const { User, SecurityKey } = require("../db");
 
-const EXCLUDED_PATHS = ["/", "/api/users", "/api/auth/login"];
+const EXCLUDED_PATHS = [
+  "/",
+  "/api/users",
+  "/api/auth/login",
+  "/api/auth/assertion"
+];
 
 module.exports = async (req, res, next) => {
   if (EXCLUDED_PATHS.includes(req.path)) {

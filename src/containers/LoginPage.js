@@ -10,7 +10,11 @@ import { withSnackbar } from "notistack";
 import SignInForm from "../forms/SignInForm";
 import SignupForm from "../forms/SignUpForm";
 
-import { signIn, signUp, postRegistrationResponse } from "../api";
+import { signIn, signUp, postAssertionResponse } from "../api";
+import {
+  decodeAssertionOptions,
+  encodeAssertionResponse
+} from "webauthnjs-helper";
 
 const styles = () => ({
   root: {},
@@ -31,33 +35,36 @@ class LoginPage extends Component {
     this.setState({ tab: newValue });
   };
 
-  handleSignIn = ({ username, password }) => {
+  handleSignIn = async ({ username, password }) => {
     if (username.length === 0 || password.length === 0) {
       this.props.enqueueSnackbar("Username & Password required");
       return;
     }
 
-    signIn({ username, password })
-      .then(res => {
+    try {
+      const res = await signIn({ username, password });
+
+      if (res.message === "success") {
         this.props.history.push("/");
-      })
-      .catch(this.showErrorSnackbar);
+      } else if (res.message === "webauthn.create") {
+        // User has key
+        const { assertionOptions } = res;
 
-    // const registrationResponse = {
-    //   id:
-    //     "0CNnRYa6EfIjcRta0ttEQiGHMMr8iM-QEWFYNWNPax_gRP_tFe7Hm5kVYFAuhZsr3fVLjJqI1DcptP8rjT1vgA",
-    //   rawId:
-    //     "0CNnRYa6EfIjcRta0ttEQiGHMMr8iM+QEWFYNWNPax/gRP/tFe7Hm5kVYFAuhZsr3fVLjJqI1DcptP8rjT1vgA==",
-    //   type: "public-key",
-    //   response: {
-    //     attestationObject:
-    //       "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVjESZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2NBAAAAHwAAAAAAAAAAAAAAAAAAAAAAQNAjZ0WGuhHyI3EbWtLbREIhhzDK/IjPkBFhWDVjT2sf4ET/7RXux5uZFWBQLoWbK931S4yaiNQ3KbT/K409b4ClAQIDJiABIVgg+6X29qJNvPbzvOQwDAnHkh6+/oVAJj0DPJ4vQZqAiAoiWCBZle94hyAcnTeJbxIaj8E6km5cek3MiFGeFs67kRRSNg==",
-    //     clientDataJSON:
-    //       "eyJjaGFsbGVuZ2UiOiJZdThsWC03Rm5abTdUTkJzcmRkemR2TXE0OXhpT2JSclhjOEIyMnhLeHhFbjdMQUw0TlNmZDRXcGxJeUhoUTdmT2lSSmtQcVdQdER2LURlSnBJcFc4QSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsInR5cGUiOiJ3ZWJhdXRobi5jcmVhdGUifQ=="
-    //   }
-    // };
+        const assertionResponse = await navigator.credentials.get({
+          publicKey: decodeAssertionOptions(assertionOptions)
+        });
 
-    // postRegistrationResponse({ registrationResponse }).then(console.log);
+        const encodedAssertionresponse = encodeAssertionResponse(
+          assertionResponse
+        );
+
+        postAssertionResponse(encodedAssertionresponse).then(() => {
+          this.props.history.push("/");
+        });
+      }
+    } catch (e) {
+      console.log(e);
+    }
   };
 
   handleSignUp = ({ username, password }) => {

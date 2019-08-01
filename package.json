@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "run-p start:react start:server",
-    "start:server": "nodemon ./server",
+    "start:server": "nodemon --watch server ./server",
     "start:react": "HTTPS=true react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",

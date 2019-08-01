@@ -6,7 +6,8 @@ const { Fido2Lib } = require("fido2-lib");
 const {
   encodeAssertionOptions,
   encodeAttestationOptions,
-  decodeAttestationResponse
+  decodeAttestationResponse,
+  decodeAssertionResponse
 } = require("webauthnjs-helper");
 
 const { FIDO2_ORIGIN } = process.env;
@@ -56,13 +57,77 @@ authRoutes.post("/login", async (req, res) => {
         user: user.json()
       });
     } else {
+      // Send assertionOptions to user
       const assertionOptions = await f2l.assertionOptions();
-      encodeAssertionOptions(assertionOptions);
+      assertionOptions.allowCredentials = user.securitykeys.map(key => ({
+        id: key.credId,
+        type: "public-key"
+      }));
+
+      const encodedAssertionOptions = encodeAssertionOptions(assertionOptions);
+      req.session.challenge = encodedAssertionOptions.challenge;
+      req.session.userId = user.id;
+
+      res.status(200).send({
+        message: "webauthn.create",
+        assertionOptions: encodedAssertionOptions
+      });
     }
-    // Sign the user in.
   } catch (e) {
     console.log(e);
     return res.status(500).send({ message: "Error" });
+  }
+});
+
+authRoutes.post("/assertion", async (req, res) => {
+  try {
+    const clientAssertionResponse = req.body;
+    const decodedClientAssertionResponse = decodeAssertionResponse(
+      clientAssertionResponse
+    );
+    const { userId } = req.session;
+    const user = await User.findById(userId, {
+      include: [SecurityKey]
+    });
+    if (!user) throw Error("User not found");
+
+    const associatedKey = user.securitykeys.find(
+      key => key.credId === clientAssertionResponse.id
+    );
+
+    if (!associatedKey) throw Error("No associated key with that id");
+
+    const { challenge } = req.session;
+
+    const assertionExpectations = {
+      challenge,
+      origin: FIDO2_ORIGIN,
+      factor: "either",
+      publicKey: associatedKey.publicKey,
+      prevCounter: associatedKey.counter,
+      userHandle: String(user.id)
+    };
+
+    const result = await f2l.assertionResult(
+      decodedClientAssertionResponse,
+      assertionExpectations
+    );
+
+    // Update counter
+    const counter = result.authnrData.get("counter");
+    associatedKey.counter = counter;
+    associatedKey.save();
+
+    req.session.userId = undefined;
+    req.session.challenge = "";
+
+    return res.cookie("auth", user.getJwt(), getCookieOptions()).send({
+      message: "success",
+      user: user.json()
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).send({ error: "Error" });
   }
 });
 
@@ -85,15 +150,12 @@ authRoutes.get("/attestation", async (req, res) => {
     attestationOptions
   );
   req.session.challenge = encodedAttestationOptions.challenge;
-  console.log(encodedAttestationOptions.challenge);
 
-  return res.status(200).send({ ...encodedAttestationOptions });
+  return res.status(200).send(encodedAttestationOptions);
 });
 
 authRoutes.post("/attestation", async (req, res) => {
   const { challenge } = req.session;
-
-  req.session.challenge = "";
 
   try {
     const clientAttestationResponse = req.body;
@@ -126,6 +188,10 @@ authRoutes.post("/attestation", async (req, res) => {
     });
 
     await key.save();
+
+    // Reset the challenge set in session
+    req.session.challenge = "";
+
     return res.status(200).send({ key: key.json() });
   } catch (e) {
     console.log(e);
@@ -133,6 +199,9 @@ authRoutes.post("/attestation", async (req, res) => {
   }
 });
 
-authRoutes.post("/assertion", async (req, res) => {});
+authRoutes.delete("/keys", async (req, res) => {
+  const keys = await SecurityKey.deleteAll(req.user.id);
+  res.send({ keys });
+});
 
 module.exports = authRoutes;

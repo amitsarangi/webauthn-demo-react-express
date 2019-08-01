@@ -35,20 +35,19 @@ class SecurityKey extends Sequelize.Model {
     this.user = SecurityKey.belongsTo(models.User, { foreignKey: "userId" });
   }
 
-  static async delete(id) {
-    const key = await SecurityKey.findByPk(id);
+  static async deleteAll(userId) {
+    const keys = await SecurityKey.destroy({
+      where: { userId }
+    });
 
-    if (!key) {
-      throw new Error("Key not found");
-    }
-
-    return key.destroy();
+    return keys;
   }
 
   json() {
     return {
       id: this.id,
-      name: this.name
+      name: this.name,
+      credId: this.credId
     };
   }
 }

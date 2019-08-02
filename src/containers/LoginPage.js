@@ -46,7 +46,7 @@ class LoginPage extends Component {
 
       if (res.message === "success") {
         this.props.history.push("/");
-      } else if (res.message === "webauthn.create") {
+      } else if (res.message === "webauthn.get") {
         // User has key
         const { assertionOptions } = res;
 

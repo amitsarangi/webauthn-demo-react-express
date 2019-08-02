@@ -60,15 +60,16 @@ class DashboardPage extends Component {
 
   handleAddSecurityKey = async () => {
     // Get the registration options from the server. At this point they are base64url encoded.
-    const registrationOptions = await getRegistrationOptions();
+    const attestationOptions = await getRegistrationOptions();
 
-    const publicKeyOptions = decodeAttestationOptions(registrationOptions);
+    const decodedAttestationOptions = decodeAttestationOptions(
+      attestationOptions
+    );
     try {
       const registrationResponse = await navigator.credentials.create({
-        publicKey: publicKeyOptions
+        publicKey: decodedAttestationOptions
       });
 
-      console.log(registrationResponse);
       const encodedRegistrationResponse = encodeAttestationResponse(
         registrationResponse
       );

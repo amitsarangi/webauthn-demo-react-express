@@ -69,7 +69,7 @@ authRoutes.post("/login", async (req, res) => {
       req.session.userId = user.id;
 
       res.status(200).send({
-        message: "webauthn.create",
+        message: "webauthn.get",
         assertionOptions: encodedAssertionOptions
       });
     }
